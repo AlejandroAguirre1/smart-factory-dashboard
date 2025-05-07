@@ -5,7 +5,8 @@ import pandas as pd
 import os
 
 app = FastAPI()
-app.mount("/", StaticFiles(directory="web_dashboard", html=True), name="static")
+app.mount("/static", StaticFiles(directory="web_dashboard"), name="static")
+
 
 
 app.add_middleware(
