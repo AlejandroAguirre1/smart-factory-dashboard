@@ -5,7 +5,7 @@ import pandas as pd
 import os
 
 app = FastAPI()
-#app.mount("/static", StaticFiles(directory="web_dashboard"), name="static")
+app.mount("/static", StaticFiles(directory="web_dashboard"), name="static")
 
 
 
