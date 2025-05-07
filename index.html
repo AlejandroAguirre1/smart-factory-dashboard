@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Factory Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<h1>Smart Factory - Latest Machine Status</h1>
+<div id="machine-data"></div>
+
+<h2>Temperature Trends</h2>
+<canvas id="chart1" width="400" height="150"></canvas>
+<canvas id="chart2" width="400" height="150"></canvas>
+<canvas id="chart3" width="400" height="150"></canvas>
+
+<h2>Pressure Trends</h2>
+<canvas id="p_chart1" width="400" height="150"></canvas>
+<canvas id="p_chart2" width="400" height="150"></canvas>
+<canvas id="p_chart3" width="400" height="150"></canvas>
+
+<script>
+let charts = {};
+
+function createOrUpdateChart(canvasId, labels, values) {
+    if (charts[canvasId]) {
+        charts[canvasId].data.labels = labels;
+        charts[canvasId].data.datasets[0].data = values;
+        charts[canvasId].update();
+    } else {
+        const ctx = document.getElementById(canvasId).getContext("2d");
+        charts[canvasId] = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Temperature (°C)",
+                    data: values,
+                    borderColor: "rgba(75, 192, 192, 1)",
+                    tension: 0.2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: false } }
+            }
+        });
+    }
+}
+
+function createOrUpdatePressureChart(canvasId, labels, values) {
+    if (charts[canvasId]) {
+        charts[canvasId].data.labels = labels;
+        charts[canvasId].data.datasets[0].data = values;
+        charts[canvasId].update();
+    } else {
+        const ctx = document.getElementById(canvasId).getContext("2d");
+        charts[canvasId] = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Pressure (bar)",
+                    data: values,
+                    borderColor: "rgba(255, 99, 132, 1)",
+                    tension: 0.2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: false } }
+            }
+        });
+    }
+}
+
+async function fetchChartData() {
+    const res = await fetch("http://127.0.0.1:8000/history");
+    const data = await res.json();
+
+    const groupedTemp = { 1: [], 2: [], 3: [] };
+    const groupedPress = { 1: [], 2: [], 3: [] };
+    const timeLabels = { 1: [], 2: [], 3: [] };
+
+    data.forEach(record => {
+        const id = record.machine_id;
+        if (groupedTemp[id]) {
+            groupedTemp[id].push(record.temperature);
+            groupedPress[id].push(record.pressure);
+            timeLabels[id].push(record.timestamp.slice(11, 19));
+        }
+    });
+
+    createOrUpdateChart("chart1", timeLabels[1], groupedTemp[1]);
+    createOrUpdateChart("chart2", timeLabels[2], groupedTemp[2]);
+    createOrUpdateChart("chart3", timeLabels[3], groupedTemp[3]);
+
+    createOrUpdatePressureChart("p_chart1", timeLabels[1], groupedPress[1]);
+    createOrUpdatePressureChart("p_chart2", timeLabels[2], groupedPress[2]);
+    createOrUpdatePressureChart("p_chart3", timeLabels[3], groupedPress[3]);
+}
+
+async function fetchAllMachinesData() {
+    try {
+        const response = await fetch('http://127.0.0.1:8000/latest_all');
+        const machines = await response.json();
+
+        let html = `
+            <table>
+                <tr>
+                    <th>Machine ID</th>
+                    <th>Temperature (°C)</th>
+                    <th>Pressure (bar)</th>
+                    <th>Status</th>
+                    <th>Timestamp</th>
+                </tr>
+        `;
+
+        machines.forEach(machine => {
+            html += `
+                <tr>
+                    <td>${machine.machine_id}</td>
+                    <td>${machine.temperature}</td>
+                    <td>${machine.pressure}</td>
+                    <td style="color: ${machine.status === 'ON' ? 'green' : 'red'}; font-weight: bold;">
+                        ${machine.status}
+                    </td>
+                    <td>${machine.timestamp}</td>
+                </tr>
+            `;
+        });
+
+        html += `</table>`;
+        document.getElementById('machine-data').innerHTML = html;
+    } catch (error) {
+        console.error("Failed to fetch machine data:", error);
+    }
+}
+
+// Refresh every 5 seconds
+setInterval(() => {
+    fetchChartData();
+    fetchAllMachinesData();
+}, 5000);
+
+// Initial load
+fetchChartData();
+fetchAllMachinesData();
+</script>
+
+</body>
+</html>
